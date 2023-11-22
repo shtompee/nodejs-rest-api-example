@@ -6,6 +6,13 @@ var app = express();
 
 app.set("port", process.env.PORT || 4000);
 
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "http://localhost:4200"); // Замените на ваш домен
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  next();
+});
+
 const pool = new Pool({
   user: "root",
   host: "dpg-clbkso7t6quc739h16r0-a.frankfurt-postgres.render.com",
