@@ -8,7 +8,9 @@ const sharp = require("sharp");
 const fs = require("fs");
 const config = require("./config/config_remote.json");
 const truePassword = 1234;
+const cors = require("cors");
 
+app.use(cors());
 var app = express();
 app.set("port", process.env.PORT || 4000);
 
