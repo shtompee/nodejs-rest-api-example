@@ -1,16 +1,42 @@
 "use strict";
 
 var express = require("express");
+const { Pool } = require("pg");
 var app = express();
 
 app.set("port", process.env.PORT || 4000);
 
-app.get("/", function (req, res) {
-  res.writeHead(200, { "Content-Type": "application/json" });
-  var response = { response: "This is empty GET method." };
-  console.log(response);
-  res.end(JSON.stringify(response));
+const pool = new Pool({
+  user: "root",
+  host: "dpg-clbkso7t6quc739h16r0-a.frankfurt-postgres.render.com",
+  database: "libraryshop",
+  password: "2zptsswkjBFj0MfVGsxQrV7D74nBGD2v",
+  port: 5432,
+  ssl: true,
 });
+
+app.get("/", async function (req, res) {
+  res.writeHead(200, { "Content-Type": "application/json" });
+
+  try {
+    const client = await pool.connect();
+    const result = await client.query("SELECT * FROM painting");
+    const response = { response: result.rows };
+    console.log(response);
+    res.end(JSON.stringify(response));
+    client.release();
+  } catch (err) {
+    console.error("Error executing query", err);
+    res.status(500).send("Internal Server Error");
+  }
+});
+
+// app.get("/", function (req, res) {
+//   res.writeHead(200, { "Content-Type": "application/json" });
+//   var response = { response: "This is empty GET method." };
+//   console.log(response);
+//   res.end(JSON.stringify(response));
+// });
 
 app.get("/:id", function (req, res) {
   res.writeHead(200, { "Content-Type": "application/json" });
