@@ -355,7 +355,7 @@ app.use(bodyParser.urlencoded({ extended: false })); // Добавьте это 
 app.use(bodyParser.json()); // Добавьте это middleware
 
 const transporter = nodemailer.createTransport({
-  host: smtp.gmail.com, // Укажите нужный почтовый сервис, например, 'Gmail'
+  host: "smtp.gmail.com", // Укажите нужный почтовый сервис, например, 'Gmail'
   port: 587,
   secure: false,
   pool: true,
