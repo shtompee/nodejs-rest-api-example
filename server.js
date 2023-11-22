@@ -3,6 +3,8 @@
 var express = require("express");
 const { Pool } = require("pg");
 const bodyParser = require("body-parser");
+const nodemailer = require("nodemailer"); // Add this line
+
 var app = express();
 const truePassword = 1234;
 app.set("port", process.env.PORT || 4000);
