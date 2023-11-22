@@ -4,6 +4,10 @@ var express = require("express");
 const { Pool } = require("pg");
 const bodyParser = require("body-parser");
 const nodemailer = require("nodemailer"); // Add this line
+const sharp = require("sharp");
+const multer = require("multer");
+const fs = require("fs");
+const config = require("./config_remote.json");
 
 var app = express();
 const truePassword = 1234;
@@ -17,11 +21,11 @@ app.use((req, res, next) => {
 });
 
 const pool = new Pool({
-  user: "root",
-  host: "dpg-clbkso7t6quc739h16r0-a.frankfurt-postgres.render.com",
-  database: "libraryshop",
-  password: "2zptsswkjBFj0MfVGsxQrV7D74nBGD2v",
-  port: 5432,
+  user: config.get("dbConfig.user"),
+  host: config.get("dbConfig.host"),
+  database: config.get("dbConfig.database"),
+  password: config.get("dbConfig.password"),
+  port: config.get("dbConfig.port"),
   ssl: true,
 });
 
@@ -355,14 +359,14 @@ app.use(bodyParser.urlencoded({ extended: false })); // Добавьте это 
 app.use(bodyParser.json()); // Добавьте это middleware
 
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com", // Укажите нужный почтовый сервис, например, 'Gmail'
-  port: 587,
-  secure: false,
+  host: config.get("smtpConfig.host"), // Укажите нужный почтовый сервис, например, 'Gmail'
+  port: config.get("smtpConfig.port"),
+  secure: config.get("smtpConfig.secure"),
   pool: true,
   // service: "smtp.gmail.com",
   auth: {
-    user: "aminmama8121@gmail.com", // Ваш адрес электронной почты
-    pass: "wksglrerbbclgxds", // Пароль от вашей почты
+    user: config.get("smtpConfig.auth.user"), // Ваш адрес электронной почты
+    pass: config.get("smtpConfig.auth.pass"), // Пароль от вашей почты
   },
 });
 
@@ -395,7 +399,7 @@ app.post("/products/send-email", (req, res) => {
   const totalAmount = itemsPrice.reduce((acc, price) => acc + price, 0);
   const formattedContactNumber = phone.internationalNumber;
   const mailOptions = {
-    from: config.smtpConfig.auth.user,
+    from: config.get("smtpConfig.auth.user"),
     to: email,
 
     bcc: "aminmama8121@gmail.com",
@@ -461,6 +465,110 @@ app.post("/products/send-email", (req, res) => {
   </html>
 `,
   };
+
+  app.post("/products/upload", upload.single("image"), (req, res) => {
+    const { name, prod_year, price, paint_size, techlogy } = req.body;
+    const image = req.file;
+
+    // Check if a file was uploaded
+    if (!image) {
+      res.status(400).send("No file was uploaded.");
+      return;
+    }
+
+    // Check if the file format is supported
+    const supportedFormats = ["image/jpeg", "image/png", "image/gif"];
+    if (!supportedFormats.includes(image.mimetype)) {
+      res.status(401).send("Unsupported file format.");
+      return;
+    }
+
+    // Generate thumbnail (list) image
+    let uploadedPath = `uploads/${image.filename}`;
+    let listPath = `uploads/${image.filename}-thumbnail.jpg`;
+    sharp(image.path)
+      .resize(200, 200, {
+        fit: "inside",
+      })
+      .toFormat("jpeg", {
+        quality: 100,
+      })
+      .toFile(listPath, (err) => {
+        if (err) {
+          console.error("Error generating thumbnail copy:", err);
+          res.status(500).send("Internal Server Error");
+          return;
+        } else {
+        }
+      });
+
+    let originalPath = `uploads/${image.filename}-original.jpg`;
+    sharp(image.path)
+      .resize(1000, 1000, {
+        fit: "inside",
+      })
+      .toFormat("jpeg", {
+        quality: 100,
+      })
+      .toFile(originalPath, (err) => {
+        if (err) {
+          console.error("Error generating original copy:", err);
+          res.status(500).send("Internal Server Error");
+          return;
+        } else {
+          const sale_status = 0;
+          const queryValues = [
+            name,
+            prod_year,
+            price,
+            paint_size,
+            sale_status,
+            techlogy,
+            Buffer.from(fs.readFileSync(listPath)),
+            Buffer.from(fs.readFileSync(originalPath)),
+            new Date(),
+          ];
+
+          // Insert data into MySQL database
+          pool.connect((error, connection, release) => {
+            if (error) {
+              console.error("Error connecting to the database:", error);
+              return;
+            }
+
+            const insertQuery =
+              "INSERT INTO painting (id, name, prod_year, price, paint_size, sale_status, techlogy, list_image, full_image, prod_date) VALUES (nextval('id_seq'), $1,$2,$3,$4,$5,$6,$7,$8,$9)";
+
+            connection.query(insertQuery, queryValues, (error, results) => {
+              release(); // Release the connection back to the pool
+
+              if (error) {
+                console.error("Error executing the SQL query:", error);
+                res.status(500).send();
+                return;
+              }
+
+              fs.unlink(listPath, (err) => {
+                if (err) throw err;
+                //console.log("File list deleted");
+              });
+
+              fs.unlink(originalPath, (err) => {
+                if (err) throw err;
+                //console.log("File original deleted");
+              });
+
+              fs.unlink(uploadedPath, (err) => {
+                if (err) throw err;
+                //console.log("File uploaded deleted");
+              });
+
+              res.send("Form submitted and data inserted into the database.");
+            });
+          });
+        }
+      });
+  });
 
   app.post("/products/upload", upload.single("image"), (req, res) => {
     const { name, prod_year, price, paint_size, techlogy } = req.body;
