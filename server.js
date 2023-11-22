@@ -9,6 +9,7 @@ app.set("port", process.env.PORT || 4000);
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Content-Type", "application/json");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
   next();
 });
 
@@ -130,6 +131,54 @@ function getPaginatedCount() {
 //   console.log(response);
 //   res.end(JSON.stringify(response));
 // });
+
+app.get("/products/productDetail/:id", async (req, res) => {
+  try {
+    res.header("Content-Type", "application/json");
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header(
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept"
+    );
+    res.header("Access-Control-Allow-Methods", "GET, POST");
+
+    const id = req.params.id;
+
+    const productDetail = await getProductDetail(id);
+
+    let zaza = JSON.stringify(productDetail);
+
+    res.send(zaza);
+  } catch (error) {
+    console.error("Произошла ошибка:", error);
+    res.status(500).json({
+      error: "Произошла ошибка на сервере",
+    });
+  }
+});
+
+function getProductDetail(id) {
+  return new Promise((resolve, reject) => {
+    const query = `SELECT id, concat('data:image/jpeg;base64,', translate(encode(full_image, 'base64'), E'\n', '')) as list_image, name, prod_year, techlogy, paint_size, price, is_purchased FROM painting WHERE id = $1`;
+
+    pool.connect((error, connection, release) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      connection.query(query, [Number(id)], (error, results) => {
+        release(); // Важно освободить соединение после выполнения запроса
+
+        if (error) {
+          reject(error);
+        } else {
+          resolve(results.rows);
+        }
+      });
+    });
+  });
+}
 
 app.get("/:id", function (req, res) {
   res.writeHead(200, { "Content-Type": "application/json" });
