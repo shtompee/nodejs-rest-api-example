@@ -3,7 +3,7 @@
 var express = require("express");
 const { Pool } = require("pg");
 var app = express();
-
+const truePassword = 1234;
 app.set("port", process.env.PORT || 4000);
 
 app.use((req, res, next) => {
@@ -233,6 +233,120 @@ function getProductImage(id) {
 //   console.log(response);
 //   res.end(JSON.stringify(response));
 // });
+
+app.delete("/products/remove/:id", async (req, res) => {
+  try {
+    res.header("Content-Type", "application/json");
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header(
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept"
+    );
+
+    const id = req.params.id;
+    const password = req.query.password;
+
+    // Вызовем функцию removeProducts и обработаем успешный результат или ошибку
+    removeProducts(id, password)
+      .then(() => {
+        res.send({
+          message: "Product has been removed successfully.",
+        });
+      })
+      .catch((error) => {
+        console.error("Произошла ошибка:", error);
+        res.status(401).json({ error: "Неправильный пароль" });
+      });
+  } catch (error) {
+    console.error("Произошла ошибка:", error);
+    res.status(500).json({
+      error: "Произошла ошибка на сервере",
+    });
+  }
+});
+
+function removeProducts(id, password) {
+  if (password === truePassword) {
+    return new Promise((resolve, reject) => {
+      const query = `DELETE FROM painting WHERE id = $1`;
+
+      pool.connect((error, connection, release) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        connection.query(query, [Number(id)], (error, results) => {
+          release();
+
+          if (error) {
+            reject(error);
+          } else {
+            resolve(results);
+          }
+        });
+      });
+    });
+  } else {
+    return Promise.reject("Неправильный пароль");
+  }
+}
+
+app.put("/products/edit/:id", function (req, res) {
+  const id = req.params.id;
+  const password = req.query.password;
+  const isProductPurchased = req.body["isProductPurchased"] === "true" ? 1 : 0;
+
+  if (password === truePassword) {
+    try {
+      const updateQuery = `UPDATE painting SET name=$1, prod_year=$2, price=$3, paint_size=$4, techlogy=$5,is_purchased=$6 WHERE id=$7`;
+
+      const values = [
+        req.body["name"],
+        req.body["prod_year"],
+        req.body["price"],
+        req.body["paint_size"],
+        req.body["techlogy"],
+        isProductPurchased,
+        id,
+      ];
+
+      res.header("Content-Type", "application/json");
+      res.header("Access-Control-Allow-Origin", "*");
+      res.header(
+        "Access-Control-Allow-Headers",
+        "Origin, X-Requested-With, Content-Type, Accept"
+      );
+
+      pool.connect((error, connection, release) => {
+        if (error) {
+          console.error(
+            "Произошла ошибка при подключении к базе данных:",
+            error
+          );
+          res.status(400).json({ error: "Произошла ошибка на сервере" });
+        } else {
+          connection.query(updateQuery, values, (error, results) => {
+            release();
+            if (error) {
+              console.error("Произошла ошибка при выполнении запроса:", error);
+              res.status(400).json({ error: "Произошла ошибка на сервере" });
+            } else {
+              res.send({
+                message: "Элемент успешно обновлен.",
+              });
+            }
+          });
+        }
+      });
+    } catch (error) {
+      console.error("Произошла ошибка:", error.message);
+      res
+        .status(500)
+        .json({ error: "Произошла ошибка на сервере" + error.message });
+    }
+  }
+});
 
 app.post("/", function (req, res) {
   res.writeHead(200, { "Content-Type": "application/json" });
