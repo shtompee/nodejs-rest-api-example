@@ -348,6 +348,129 @@ app.put("/products/edit/:id", function (req, res) {
   }
 });
 
+app.use(bodyParser.urlencoded({ extended: false })); // Добавьте это middleware
+app.use(bodyParser.json()); // Добавьте это middleware
+
+const transporter = nodemailer.createTransport({
+  host: smtp.gmail.com, // Укажите нужный почтовый сервис, например, 'Gmail'
+  port: 587,
+  secure: false,
+  pool: true,
+  // service: "smtp.gmail.com",
+  auth: {
+    user: "aminmama8121@gmail.com", // Ваш адрес электронной почты
+    pass: "wksglrerbbclgxds", // Пароль от вашей почты
+  },
+});
+
+// Маршрут для отправки письма
+app.post("/products/send-email", (req, res) => {
+  const { itemsPrice, itemsName, itemsIds, email, name, message, phone } =
+    req.body;
+  //console.log(req.body);
+  const attachments = [];
+
+  itemsIds.forEach((itemId, index) => {
+    const idImage = parseInt(itemId); // Преобразуем значение к числовому типу
+    if (!isNaN(idImage) && itemsName[index]) {
+      // Проверяем, что idImage является числом (не NaN)
+
+      //TODO: get from database
+      const imageUrl = `https://nodejs-rest-api-example.onrender.com/products/productImage/${idImage}`;
+
+      attachments.push({
+        filename: `${itemsName[index]}.jpg`,
+        path: imageUrl,
+        cid: `unique-image-id-${idImage}`,
+      });
+    }
+  });
+
+  const itemsNameHTML = itemsName
+    .map((itemName) => `<li>${itemName}</li>`)
+    .join("");
+  const totalAmount = itemsPrice.reduce((acc, price) => acc + price, 0);
+  const formattedContactNumber = phone.internationalNumber;
+  const mailOptions = {
+    from: config.smtpConfig.auth.user,
+    to: email,
+
+    bcc: "aminmama8121@gmail.com",
+    subject: "Ваш заказ",
+    attachments: attachments,
+    html: `
+    <html>
+    <head>
+      <style>
+        /* Ваши стили здесь */
+        body {
+          font-family: Arial, sans-serif;
+          background-color: #fff; /* Белый фон */
+          color: #333; /* Цвет текста */
+        }
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+        }
+        h1 {
+          color: #FF5733;
+          text-align: center; /* Центрируем текст заголовка */
+          margin-bottom: 80px
+        }
+        p {
+          color: #FF5733;
+          font-weight: bold;
+          text-transform: uppercase;
+          font-size: 16px;
+          line-height: 1.6;
+          color: #555;
+          text-align: center;
+        }
+        ul {
+          text-align: center;
+          list-style-type: none; /* Убираем маркеры списка */
+          padding: 0; /* Убираем отступы вокруг списка */
+        }
+        ul li {
+          font-weight: bold;
+          text-transform: uppercase;
+          margin: 5px 0; /* Отступы между элементами списка */
+          padding: 10px; /* Внутренний отступ для элементов списка */
+          background-color: #FFF6EB; /* Фон элемента списка */
+          border-radius: 5px; /* Закругленные углы элемента списка */
+        }
+        /* Дополнительные стили для элементов, если необходимо */
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Здравствуйте ${name}!<br> Благодарю за покупку</h1>
+        <p>Ваш заказ:</p>
+        <ul>
+          ${itemsNameHTML}
+        </ul>
+        <p>Контактный номер: ${formattedContactNumber}</p>
+        <p>Cумма Заказа: ${totalAmount} USD</p>
+        <p>Ваше предпочтение к заказу:${message}</p>
+      </div>
+    </body>
+  </html>
+`,
+  };
+
+  // Отправка письма
+  transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+      console.error("Ошибка отправки письма:", error);
+      res.status(500).json({ error: "Ошибка отправки письма" });
+    } else {
+      //console.log("Письмо успешно отправлено:", info.response);
+      res.json({ message: "Письмо успешно отправлено" });
+    }
+  });
+});
+
 app.post("/", function (req, res) {
   res.writeHead(200, { "Content-Type": "application/json" });
   var response = { response: "This is POST method." };
