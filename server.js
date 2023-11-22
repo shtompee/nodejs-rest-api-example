@@ -5,7 +5,6 @@ const { Pool } = require("pg");
 const bodyParser = require("body-parser");
 const nodemailer = require("nodemailer"); // Add this line
 const sharp = require("sharp");
-const multer = require("multer");
 const fs = require("fs");
 const config = require("./config/config_remote.json");
 const truePassword = 1234;
@@ -19,6 +18,8 @@ app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
   next();
 });
+app.use(bodyParser.urlencoded({ extended: false })); // Добавьте это middleware
+app.use(bodyParser.json()); // Добавьте это middleware
 
 const pool = new Pool({
   user: config.dbConfig.user,
@@ -28,24 +29,6 @@ const pool = new Pool({
   port: config.dbConfig.port,
   ssl: config.dbConfig.ssl,
 });
-
-console.log(pool);
-
-// app.get("/", async function (req, res) {
-//   res.writeHead(200, { "Content-Type": "application/json" });
-
-//   try {
-//     const client = await pool.connect();
-//     const result = await client.query("SELECT * FROM painting");
-//     const response = { response: result.rows };
-//     console.log(response);
-//     res.end(JSON.stringify(response));
-//     client.release();
-//   } catch (err) {
-//     console.error("Error executing query", err);
-//     res.status(500).send("Internal Server Error");
-//   }
-// });
 
 app.get("/products", async (req, res) => {
   try {
@@ -64,7 +47,6 @@ app.get("/products", async (req, res) => {
   }
 });
 
-//
 async function getProdcutsWrapper(page, itemsPerPage) {
   try {
     const [{ total }] = await getPaginatedCount();
@@ -134,30 +116,12 @@ function getPaginatedCount() {
   });
 }
 
-// app.get("/", function (req, res) {
-//   res.writeHead(200, { "Content-Type": "application/json" });
-//   var response = { response: "This is empty GET method." };
-//   console.log(response);
-//   res.end(JSON.stringify(response));
-// });
-
 app.get("/products/productDetail/:id", async (req, res) => {
   try {
-    res.header("Content-Type", "application/json");
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header(
-      "Access-Control-Allow-Headers",
-      "Origin, X-Requested-With, Content-Type, Accept"
-    );
     res.header("Access-Control-Allow-Methods", "GET, POST");
-
     const id = req.params.id;
-
     const productDetail = await getProductDetail(id);
-
-    let zaza = JSON.stringify(productDetail);
-
-    res.send(zaza);
+    res.send(JSON.stringify(productDetail));
   } catch (error) {
     console.error("Произошла ошибка:", error);
     res.status(500).json({
@@ -169,7 +133,6 @@ app.get("/products/productDetail/:id", async (req, res) => {
 function getProductDetail(id) {
   return new Promise((resolve, reject) => {
     const query = `SELECT id, concat('data:image/jpeg;base64,', translate(encode(full_image, 'base64'), E'\n', '')) as list_image, name, prod_year, techlogy, paint_size, price, is_purchased FROM painting WHERE id = $1`;
-
     pool.connect((error, connection, release) => {
       if (error) {
         reject(error);
@@ -188,60 +151,6 @@ function getProductDetail(id) {
     });
   });
 }
-
-app.get("/products/productImage/:id", async (req, res) => {
-  try {
-    res.header("Content-Type", "image/jpeg");
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header(
-      "Access-Control-Allow-Headers",
-      "Origin, X-Requested-With, Content-Type, Accept"
-    );
-    res.header("Access-Control-Allow-Methods", "GET, POST");
-
-    const id = req.params.id;
-
-    const productImage = await getProductImage(id);
-    res.send(productImage);
-  } catch (error) {
-    console.error("Произошла ошибка:", error);
-    res.status(500).json({
-      error: "Произошла ошибка на сервере",
-    });
-  }
-});
-
-function getProductImage(id) {
-  return new Promise((resolve, reject) => {
-    const query = `SELECT list_image FROM painting WHERE id = $1`;
-
-    pool.connect((error, connection, release) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-
-      connection.query(query, [Number(id)], (error, results) => {
-        release(); // Важно освободить соединение после выполнения запроса
-
-        if (error) {
-          reject(error);
-        } else {
-          resolve(results[0].list_image);
-        }
-      });
-    });
-  });
-}
-
-// app.get("/:id", function (req, res) {
-//   res.writeHead(200, { "Content-Type": "application/json" });
-//   var response = {
-//     response: "This is GET method with id=" + req.params.id + ".",
-//   };
-//   console.log(response);
-//   res.end(JSON.stringify(response));
-// });
 
 app.delete("/products/remove/:id", async (req, res) => {
   try {
@@ -264,7 +173,7 @@ app.delete("/products/remove/:id", async (req, res) => {
       })
       .catch((error) => {
         console.error("Произошла ошибка:", error);
-        res.status(401).json({ error: "Неправильный пароль" });
+        res.status(401).json({ error: "Неправильный пароль2" });
       });
   } catch (error) {
     console.error("Произошла ошибка:", error);
@@ -297,7 +206,7 @@ function removeProducts(id, password) {
       });
     });
   } else {
-    return Promise.reject("Неправильный пароль");
+    return Promise.reject("Неправильный пароль1");
   }
 }
 
@@ -356,9 +265,6 @@ app.put("/products/edit/:id", function (req, res) {
     }
   }
 });
-
-app.use(bodyParser.urlencoded({ extended: false })); // Добавьте это middleware
-app.use(bodyParser.json()); // Добавьте это middleware
 
 const transporter = nodemailer.createTransport({
   host: config.smtpConfig.host, // Укажите нужный почтовый сервис, например, 'Gmail'
@@ -686,27 +592,6 @@ app.post("/products/send-email", (req, res) => {
       res.json({ message: "Письмо успешно отправлено" });
     }
   });
-});
-
-app.post("/", function (req, res) {
-  res.writeHead(200, { "Content-Type": "application/json" });
-  var response = { response: "This is POST method." };
-  console.log(response);
-  res.end(JSON.stringify(response));
-});
-
-app.put("/", function (req, res) {
-  res.writeHead(200, { "Content-Type": "application/json" });
-  var response = { response: "This is PUT method." };
-  console.log(response);
-  res.end(JSON.stringify(response));
-});
-
-app.delete("/", function (req, res) {
-  res.writeHead(200, { "Content-Type": "application/json" });
-  var response = { response: "This is DELETE method." };
-  console.log(response);
-  res.end(JSON.stringify(response));
 });
 
 var server = app.listen(app.get("port"), function () {
