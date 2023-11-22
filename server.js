@@ -2,6 +2,7 @@
 
 var express = require("express");
 const { Pool } = require("pg");
+const bodyParser = require("body-parser");
 var app = express();
 const truePassword = 1234;
 app.set("port", process.env.PORT || 4000);
