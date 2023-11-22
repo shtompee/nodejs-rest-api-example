@@ -22,12 +22,14 @@ app.use((req, res, next) => {
 
 const pool = new Pool({
   user: config.dbConfig.user,
-  host: config.host,
-  database: config.database,
-  password: config.password,
-  port: config.port,
-  ssl: true,
+  host: config.dbConfig.host,
+  database: config.dbConfig.database,
+  password: config.dbConfig.password,
+  port: config.dbConfig.port,
+  ssl: config.dbConfig.ssl,
 });
+
+console.log(pool);
 
 // app.get("/", async function (req, res) {
 //   res.writeHead(200, { "Content-Type": "application/json" });
