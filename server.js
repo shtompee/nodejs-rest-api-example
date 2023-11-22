@@ -155,6 +155,7 @@ function getProductDetail(id) {
 app.delete("/products/remove/:id", async (req, res) => {
   try {
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     const id = req.params.id;
     const password = req.query.password;
 
