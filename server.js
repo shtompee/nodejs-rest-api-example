@@ -180,14 +180,59 @@ function getProductDetail(id) {
   });
 }
 
-app.get("/:id", function (req, res) {
-  res.writeHead(200, { "Content-Type": "application/json" });
-  var response = {
-    response: "This is GET method with id=" + req.params.id + ".",
-  };
-  console.log(response);
-  res.end(JSON.stringify(response));
+app.get("/products/productImage/:id", async (req, res) => {
+  try {
+    res.header("Content-Type", "image/jpeg");
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header(
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept"
+    );
+    res.header("Access-Control-Allow-Methods", "GET, POST");
+
+    const id = req.params.id;
+
+    const productImage = await getProductImage(id);
+    res.send(productImage);
+  } catch (error) {
+    console.error("Произошла ошибка:", error);
+    res.status(500).json({
+      error: "Произошла ошибка на сервере",
+    });
+  }
 });
+
+function getProductImage(id) {
+  return new Promise((resolve, reject) => {
+    const query = `SELECT list_image FROM painting WHERE id = $1`;
+
+    pool.connect((error, connection, release) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      connection.query(query, [Number(id)], (error, results) => {
+        release(); // Важно освободить соединение после выполнения запроса
+
+        if (error) {
+          reject(error);
+        } else {
+          resolve(results[0].list_image);
+        }
+      });
+    });
+  });
+}
+
+// app.get("/:id", function (req, res) {
+//   res.writeHead(200, { "Content-Type": "application/json" });
+//   var response = {
+//     response: "This is GET method with id=" + req.params.id + ".",
+//   };
+//   console.log(response);
+//   res.end(JSON.stringify(response));
+// });
 
 app.post("/", function (req, res) {
   res.writeHead(200, { "Content-Type": "application/json" });
