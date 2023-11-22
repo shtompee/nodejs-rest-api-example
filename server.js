@@ -7,8 +7,8 @@ const nodemailer = require("nodemailer"); // Add this line
 const sharp = require("sharp");
 const multer = require("multer");
 const fs = require("fs");
-const config = require("./config_remote.json");
-
+const config = require("config"); //require("./config_remote.json");
+const configFile = require("./config/config_remote.json");
 var app = express();
 const truePassword = 1234;
 app.set("port", process.env.PORT || 4000);
@@ -21,11 +21,11 @@ app.use((req, res, next) => {
 });
 
 const pool = new Pool({
-  user: config.get("dbConfig.user"),
-  host: config.get("dbConfig.host"),
-  database: config.get("dbConfig.database"),
-  password: config.get("dbConfig.password"),
-  port: config.get("dbConfig.port"),
+  user: configFile.user,
+  host: configFile.host,
+  database: configFile.database,
+  password: configFile.password,
+  port: configFile.port,
   ssl: true,
 });
 
@@ -359,14 +359,14 @@ app.use(bodyParser.urlencoded({ extended: false })); // Добавьте это 
 app.use(bodyParser.json()); // Добавьте это middleware
 
 const transporter = nodemailer.createTransport({
-  host: config.get("smtpConfig.host"), // Укажите нужный почтовый сервис, например, 'Gmail'
-  port: config.get("smtpConfig.port"),
-  secure: config.get("smtpConfig.secure"),
+  host: configFile.smtpConfig.host, // Укажите нужный почтовый сервис, например, 'Gmail'
+  port: configFile.smtpConfig.port,
+  secure: configFile.smtpConfig.secure,
   pool: true,
   // service: "smtp.gmail.com",
   auth: {
-    user: config.get("smtpConfig.auth.user"), // Ваш адрес электронной почты
-    pass: config.get("smtpConfig.auth.pass"), // Пароль от вашей почты
+    user: configFile.smtpConfig.auth.user, // Ваш адрес электронной почты
+    pass: configFile.smtpConfig.auth.pass, // Пароль от вашей почты
   },
 });
 
@@ -399,7 +399,7 @@ app.post("/products/send-email", (req, res) => {
   const totalAmount = itemsPrice.reduce((acc, price) => acc + price, 0);
   const formattedContactNumber = phone.internationalNumber;
   const mailOptions = {
-    from: config.get("smtpConfig.auth.user"),
+    from: configFile.smtpConfig.auth.user,
     to: email,
 
     bcc: "aminmama8121@gmail.com",
