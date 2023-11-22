@@ -8,6 +8,7 @@ app.set("port", process.env.PORT || 4000);
 
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
+  res.header("Content-Type", "application/json");
   next();
 });
 
