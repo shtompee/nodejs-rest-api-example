@@ -154,13 +154,6 @@ function getProductDetail(id) {
 
 app.delete("/products/remove/:id", async (req, res) => {
   try {
-    res.header("Content-Type", "application/json");
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header(
-      "Access-Control-Allow-Headers",
-      "Origin, X-Requested-With, Content-Type, Accept"
-    );
-
     const id = req.params.id;
     const password = req.query.password;
 
@@ -228,13 +221,6 @@ app.put("/products/edit/:id", function (req, res) {
         isProductPurchased,
         id,
       ];
-
-      res.header("Content-Type", "application/json");
-      res.header("Access-Control-Allow-Origin", "*");
-      res.header(
-        "Access-Control-Allow-Headers",
-        "Origin, X-Requested-With, Content-Type, Accept"
-      );
 
       pool.connect((error, connection, release) => {
         if (error) {
