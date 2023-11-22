@@ -8,7 +8,7 @@ app.set("port", process.env.PORT || 4000);
 
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.header("Content-Type", "application/json");
+  res.setHeader("Content-Type", "application/json");
   next();
 });
 
@@ -26,7 +26,9 @@ app.get("/", async function (req, res) {
 
   try {
     const client = await pool.connect();
-    const result = await client.query("SELECT * FROM painting");
+    const result = await client.query(
+      "SELECT id, concat('data:image/jpeg;base64,', translate(encode(list_image, 'base64'), E'\n', '')) as list_image, name, prod_year, techlogy, paint_size, price, is_purchased FROM painting ORDER BY id ASC LIMIT $1 OFFSET $2"
+    );
     const response = { response: result.rows };
     console.log(response);
     res.end(JSON.stringify(response));
