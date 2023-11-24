@@ -435,7 +435,7 @@ app.post("/products/send-email", (req, res) => {
       // Проверяем, что imageId является числом (не NaN)
 
       //TODO: get from database
-      var imageUrl = `http://${config.server.host}`;
+      var imageUrl = `${config.server.host}`;
       if (config.server.port !== null) {
         imageUrl = imageUrl.concat(`:${config.server.port}`);
       }
