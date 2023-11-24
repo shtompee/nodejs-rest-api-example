@@ -1,7 +1,7 @@
 {
   "server": {
     "host":"https://nodejs-rest-api-example.onrender.com",
-    "port":"10000"
+    "port":null
   },
   "dbConfig": {
     "host": "dpg-clbkso7t6quc739h16r0-a.frankfurt-postgres.render.com",
