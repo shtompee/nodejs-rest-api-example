@@ -1,25 +1,36 @@
 "use strict";
 
 var express = require("express");
+const multer = require("multer");
+const path = require("path");
 const { Pool } = require("pg");
 const bodyParser = require("body-parser");
 const nodemailer = require("nodemailer"); // Add this line
 const sharp = require("sharp");
 const fs = require("fs");
 const config = require("./config/config_remote.json");
-const truePassword = 1234;
+const truePassword = "1234";
 
 var app = express();
-app.set("port", process.env.PORT || 4000);
+
+app.set("port", process.env.PORT || config.server.port);
 
 app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Headers", "*");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   next();
 });
-app.use(bodyParser.urlencoded({ extended: false })); // Добавьте это middleware
-app.use(bodyParser.json()); // Добавьте это middleware
+
+//Serve static files from the "public" directory
+app.use(express.static("public"));
+// Добавьте это middleware
+app.use(bodyParser.urlencoded({ extended: false }));
+// Добавьте это middleware
+app.use(bodyParser.json());
+//app.use(cors());
 
 const pool = new Pool({
   user: config.dbConfig.user,
@@ -30,6 +41,118 @@ const pool = new Pool({
   ssl: config.dbConfig.ssl,
 });
 
+//---------------------Upload------------------------
+
+const upload = multer({
+  dest: "uploads/",
+});
+
+app.post("/products/upload", upload.single("image"), (req, res) => {
+  const { name, prod_year, price, paint_size, techlogy } = req.body;
+  const image = req.file;
+
+  // Check if a file was uploaded
+  if (!image) {
+    res.status(400).send("No file was uploaded.");
+    return;
+  }
+
+  // Check if the file format is supported
+  const supportedFormats = ["image/jpeg", "image/png", "image/gif"];
+  if (!supportedFormats.includes(image.mimetype)) {
+    res.status(401).send("Unsupported file format.");
+    return;
+  }
+
+  //Generate thumbnail (list) image
+  let uploadedPath = `uploads/${image.filename}`;
+  let listPath = `uploads/${image.filename}-thumbnail.jpg`;
+  sharp(image.path)
+    .resize(200, 200, {
+      fit: "inside",
+    })
+    .toFormat("jpeg", {
+      quality: 100,
+    })
+    .toFile(listPath, (err) => {
+      if (err) {
+        console.error("Error generating thumbnail copy:", err);
+        res.status(500).send("Internal Server Error");
+        return;
+      } else {
+      }
+    });
+
+  let originalPath = `uploads/${image.filename}-original.jpg`;
+  sharp(image.path)
+    .resize(1000, 1000, {
+      fit: "inside",
+    })
+    .toFormat("jpeg", {
+      quality: 100,
+    })
+    .toFile(originalPath, (err) => {
+      if (err) {
+        console.error("Error generating original copy:", err);
+        res.status(500).send("Internal Server Error");
+        return;
+      } else {
+        const sale_status = 0;
+        const queryValues = [
+          name,
+          prod_year,
+          price,
+          paint_size,
+          sale_status,
+          techlogy,
+          Buffer.from(fs.readFileSync(listPath)),
+          Buffer.from(fs.readFileSync(originalPath)),
+          new Date(),
+        ];
+
+        //Insert data into MySQL database
+        pool.connect((error, connection, release) => {
+          if (error) {
+            console.error("Error connecting to the database:", error);
+            return;
+          }
+
+          const insertQuery =
+            "INSERT INTO painting (id, name, prod_year, price, paint_size, sale_status, techlogy, list_image, full_image, prod_date) VALUES (nextval('id_seq'), $1,$2,$3,$4,$5,$6,$7,$8,$9)";
+
+          connection.query(insertQuery, queryValues, (error, results) => {
+            // Release the connection back to the pool
+            release();
+
+            if (error) {
+              console.error("Error executing the SQL query:", error);
+              res.status(500).send();
+              return;
+            }
+
+            fs.unlink(listPath, (err) => {
+              if (err) throw err;
+              console.log("File list deleted");
+            });
+
+            fs.unlink(originalPath, (err) => {
+              if (err) throw err;
+              console.log("File original deleted");
+            });
+
+            fs.unlink(uploadedPath, (err) => {
+              if (err) throw err;
+              console.log("File uploaded deleted");
+            });
+
+            res.send("Form submitted and data inserted into the database.");
+          });
+        });
+      }
+    });
+});
+
+//---------------------Products------------------------
 app.get("/products", async (req, res) => {
   try {
     const page = req.query.page;
@@ -81,7 +204,8 @@ function getPaginatedData(page, itemsPerPage) {
       }
 
       connection.query(query, [limit, offset], (error, results) => {
-        release(); // Важно освободить соединение после выполнения запроса
+        // Важно освободить соединение после выполнения запроса
+        release();
 
         if (error) {
           reject(error);
@@ -104,7 +228,8 @@ function getPaginatedCount() {
       }
 
       connection.query(query, (error, results) => {
-        release(); // Важно освободить соединение после выполнения запроса
+        // Важно освободить соединение после выполнения запроса
+        release();
 
         if (error) {
           reject(error);
@@ -118,7 +243,6 @@ function getPaginatedCount() {
 
 app.get("/products/productDetail/:id", async (req, res) => {
   try {
-    res.header("Access-Control-Allow-Methods", "GET, POST");
     const id = req.params.id;
     const productDetail = await getProductDetail(id);
     res.send(JSON.stringify(productDetail));
@@ -140,7 +264,8 @@ function getProductDetail(id) {
       }
 
       connection.query(query, [Number(id)], (error, results) => {
-        release(); // Важно освободить соединение после выполнения запроса
+        // Важно освободить соединение после выполнения запроса
+        release();
 
         if (error) {
           reject(error);
@@ -153,14 +278,10 @@ function getProductDetail(id) {
 }
 
 app.delete("/products/remove/:id", async (req, res) => {
-  try {
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    const id = req.params.id;
-    const password = req.query.password;
-
-    // Вызовем функцию removeProducts и обработаем успешный результат или ошибку
-    removeProducts(id, password)
+  const id = req.params.id;
+  const password = req.query.password;
+  if (password === truePassword) {
+    removeProduct(id, password)
       .then(() => {
         res.send({
           message: "Product has been removed successfully.",
@@ -168,41 +289,34 @@ app.delete("/products/remove/:id", async (req, res) => {
       })
       .catch((error) => {
         console.error("Произошла ошибка:", error);
-        res.status(401).json({ error: "Неправильный пароль2" });
+        res.status(401).json({ error: error });
       });
-  } catch (error) {
-    console.error("Произошла ошибка:", error);
-    res.status(500).json({
-      error: "Произошла ошибка на сервере",
-    });
+  } else {
+    res.status(401).json({ error: "Неправильный пароль" });
   }
 });
 
-function removeProducts(id, password) {
-  if (password === truePassword) {
-    return new Promise((resolve, reject) => {
-      const query = `DELETE FROM painting WHERE id = $1`;
+function removeProduct(id, password) {
+  return new Promise((resolve, reject) => {
+    const query = `DELETE FROM painting WHERE id = $1`;
 
-      pool.connect((error, connection, release) => {
+    pool.connect((error, connection, release) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      connection.query(query, [Number(id)], (error, results) => {
+        release();
+
         if (error) {
           reject(error);
-          return;
+        } else {
+          resolve(results);
         }
-
-        connection.query(query, [Number(id)], (error, results) => {
-          release();
-
-          if (error) {
-            reject(error);
-          } else {
-            resolve(results);
-          }
-        });
       });
     });
-  } else {
-    return Promise.reject("Неправильный пароль1");
-  }
+  });
 }
 
 app.put("/products/edit/:id", function (req, res) {
@@ -211,60 +325,102 @@ app.put("/products/edit/:id", function (req, res) {
   const isProductPurchased = req.body["isProductPurchased"] === "true" ? 1 : 0;
 
   if (password === truePassword) {
-    try {
-      const updateQuery = `UPDATE painting SET name=$1, prod_year=$2, price=$3, paint_size=$4, techlogy=$5,is_purchased=$6 WHERE id=$7`;
+    const updateQuery = `UPDATE painting SET name=$1, prod_year=$2, price=$3, paint_size=$4, techlogy=$5,is_purchased=$6 WHERE id=$7`;
 
-      const values = [
-        req.body["name"],
-        req.body["prod_year"],
-        req.body["price"],
-        req.body["paint_size"],
-        req.body["techlogy"],
-        isProductPurchased,
-        id,
-      ];
+    const values = [
+      req.body["name"],
+      req.body["prod_year"],
+      req.body["price"],
+      req.body["paint_size"],
+      req.body["techlogy"],
+      isProductPurchased,
+      id,
+    ];
 
-      pool.connect((error, connection, release) => {
-        if (error) {
-          console.error(
-            "Произошла ошибка при подключении к базе данных:",
-            error
-          );
-          res.status(400).json({ error: "Произошла ошибка на сервере" });
-        } else {
-          connection.query(updateQuery, values, (error, results) => {
-            release();
-            if (error) {
-              console.error("Произошла ошибка при выполнении запроса:", error);
-              res.status(400).json({ error: "Произошла ошибка на сервере" });
-            } else {
-              res.send({
-                message: "Элемент успешно обновлен.",
-              });
-            }
-          });
-        }
-      });
-    } catch (error) {
-      console.error("Произошла ошибка:", error.message);
-      res
-        .status(500)
-        .json({ error: "Произошла ошибка на сервере" + error.message });
-    }
+    pool.connect((error, connection, release) => {
+      if (error) {
+        console.error("Произошла ошибка при подключении к базе данных:", error);
+        res.status(400).json({ error: "Произошла ошибка на сервере" });
+      } else {
+        connection.query(updateQuery, values, (error, results) => {
+          release();
+          if (error) {
+            console.error("Произошла ошибка при выполнении запроса:", error);
+            res.status(400).json({ error: "Произошла ошибка на сервере" });
+          } else {
+            res.send({
+              message: "Элемент успешно обновлен.",
+            });
+          }
+        });
+      }
+    });
+  } else {
+    res.status(401).json({ error: "Неправильный пароль" });
   }
 });
 
+//---------------------Emailer------------------------
+
 const transporter = nodemailer.createTransport({
-  host: config.smtpConfig.host, // Укажите нужный почтовый сервис, например, 'Gmail'
+  host: config.smtpConfig.host,
   port: config.smtpConfig.port,
   secure: config.smtpConfig.secure,
   pool: true,
-  // service: "smtp.gmail.com",
   auth: {
-    user: config.smtpConfig.auth.user, // Ваш адрес электронной почты
-    pass: config.smtpConfig.auth.pass, // Пароль от вашей почты
+    user: config.smtpConfig.auth.user,
+    pass: config.smtpConfig.auth.pass,
+  },
+  tls: {
+    // Используйте более современные версии протоколов, если это поддерживается сервером
+    minVersion: config.smtpConfig.tls.minVersion,
   },
 });
+
+app.get("/products/productImage/:id", async (req, res) => {
+  try {
+    res.header("Content-Type", "image/jpeg");
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header(
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept"
+    );
+    res.header("Access-Control-Allow-Methods", "GET, POST");
+
+    const id = req.params.id;
+
+    const productImage = await getProductImage(id);
+    res.send(productImage);
+  } catch (error) {
+    console.error("Произошла ошибка:", error);
+    res.status(500).json({
+      error: "Произошла ошибка на сервере",
+    });
+  }
+});
+
+function getProductImage(id) {
+  return new Promise((resolve, reject) => {
+    const query = `SELECT list_image FROM painting WHERE id = $1`;
+
+    pool.connect((error, connection, release) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      connection.query(query, [Number(id)], (error, results) => {
+        release(); //Важно освободить соединение после выполнения запроса
+
+        if (error) {
+          reject(error);
+        } else {
+          resolve(results.rows[0].list_image);
+        }
+      });
+    });
+  });
+}
 
 // Маршрут для отправки письма
 app.post("/products/send-email", (req, res) => {
@@ -274,17 +430,17 @@ app.post("/products/send-email", (req, res) => {
   const attachments = [];
 
   itemsIds.forEach((itemId, index) => {
-    const idImage = parseInt(itemId); // Преобразуем значение к числовому типу
-    if (!isNaN(idImage) && itemsName[index]) {
-      // Проверяем, что idImage является числом (не NaN)
+    const imageId = parseInt(itemId); // Преобразуем значение к числовому типу
+    if (!isNaN(imageId) && itemsName[index]) {
+      // Проверяем, что imageId является числом (не NaN)
 
       //TODO: get from database
-      const imageUrl = `https://nodejs-rest-api-example.onrender.com/products/productImage/${idImage}`;
+      const imageUrl = `http://${config.server.host}:${config.server.port}/products/productImage/${imageId}`;
 
       attachments.push({
         filename: `${itemsName[index]}.jpg`,
         path: imageUrl,
-        cid: `unique-image-id-${idImage}`,
+        cid: `unique-image-id-${imageId}`,
       });
     }
   });
@@ -362,224 +518,20 @@ app.post("/products/send-email", (req, res) => {
 `,
   };
 
-  app.post("/products/upload", upload.single("image"), (req, res) => {
-    const { name, prod_year, price, paint_size, techlogy } = req.body;
-    const image = req.file;
-
-    // Check if a file was uploaded
-    if (!image) {
-      res.status(400).send("No file was uploaded.");
-      return;
-    }
-
-    // Check if the file format is supported
-    const supportedFormats = ["image/jpeg", "image/png", "image/gif"];
-    if (!supportedFormats.includes(image.mimetype)) {
-      res.status(401).send("Unsupported file format.");
-      return;
-    }
-
-    // Generate thumbnail (list) image
-    let uploadedPath = `uploads/${image.filename}`;
-    let listPath = `uploads/${image.filename}-thumbnail.jpg`;
-    sharp(image.path)
-      .resize(200, 200, {
-        fit: "inside",
-      })
-      .toFormat("jpeg", {
-        quality: 100,
-      })
-      .toFile(listPath, (err) => {
-        if (err) {
-          console.error("Error generating thumbnail copy:", err);
-          res.status(500).send("Internal Server Error");
-          return;
-        } else {
-        }
-      });
-
-    let originalPath = `uploads/${image.filename}-original.jpg`;
-    sharp(image.path)
-      .resize(1000, 1000, {
-        fit: "inside",
-      })
-      .toFormat("jpeg", {
-        quality: 100,
-      })
-      .toFile(originalPath, (err) => {
-        if (err) {
-          console.error("Error generating original copy:", err);
-          res.status(500).send("Internal Server Error");
-          return;
-        } else {
-          const sale_status = 0;
-          const queryValues = [
-            name,
-            prod_year,
-            price,
-            paint_size,
-            sale_status,
-            techlogy,
-            Buffer.from(fs.readFileSync(listPath)),
-            Buffer.from(fs.readFileSync(originalPath)),
-            new Date(),
-          ];
-
-          // Insert data into MySQL database
-          pool.connect((error, connection, release) => {
-            if (error) {
-              console.error("Error connecting to the database:", error);
-              return;
-            }
-
-            const insertQuery =
-              "INSERT INTO painting (id, name, prod_year, price, paint_size, sale_status, techlogy, list_image, full_image, prod_date) VALUES (nextval('id_seq'), $1,$2,$3,$4,$5,$6,$7,$8,$9)";
-
-            connection.query(insertQuery, queryValues, (error, results) => {
-              release(); // Release the connection back to the pool
-
-              if (error) {
-                console.error("Error executing the SQL query:", error);
-                res.status(500).send();
-                return;
-              }
-
-              fs.unlink(listPath, (err) => {
-                if (err) throw err;
-                //console.log("File list deleted");
-              });
-
-              fs.unlink(originalPath, (err) => {
-                if (err) throw err;
-                //console.log("File original deleted");
-              });
-
-              fs.unlink(uploadedPath, (err) => {
-                if (err) throw err;
-                //console.log("File uploaded deleted");
-              });
-
-              res.send("Form submitted and data inserted into the database.");
-            });
-          });
-        }
-      });
-  });
-
-  app.post("/products/upload", upload.single("image"), (req, res) => {
-    const { name, prod_year, price, paint_size, techlogy } = req.body;
-    const image = req.file;
-
-    // Check if a file was uploaded
-    if (!image) {
-      res.status(400).send("No file was uploaded.");
-      return;
-    }
-
-    // Check if the file format is supported
-    const supportedFormats = ["image/jpeg", "image/png", "image/gif"];
-    if (!supportedFormats.includes(image.mimetype)) {
-      res.status(401).send("Unsupported file format.");
-      return;
-    }
-
-    // Generate thumbnail (list) image
-    let uploadedPath = `uploads/${image.filename}`;
-    let listPath = `uploads/${image.filename}-thumbnail.jpg`;
-    sharp(image.path)
-      .resize(200, 200, {
-        fit: "inside",
-      })
-      .toFormat("jpeg", {
-        quality: 100,
-      })
-      .toFile(listPath, (err) => {
-        if (err) {
-          console.error("Error generating thumbnail copy:", err);
-          res.status(500).send("Internal Server Error");
-          return;
-        } else {
-        }
-      });
-
-    let originalPath = `uploads/${image.filename}-original.jpg`;
-    sharp(image.path)
-      .resize(1000, 1000, {
-        fit: "inside",
-      })
-      .toFormat("jpeg", {
-        quality: 100,
-      })
-      .toFile(originalPath, (err) => {
-        if (err) {
-          console.error("Error generating original copy:", err);
-          res.status(500).send("Internal Server Error");
-          return;
-        } else {
-          const sale_status = 0;
-          const queryValues = [
-            name,
-            prod_year,
-            price,
-            paint_size,
-            sale_status,
-            techlogy,
-            Buffer.from(fs.readFileSync(listPath)),
-            Buffer.from(fs.readFileSync(originalPath)),
-            new Date(),
-          ];
-
-          // Insert data into MySQL database
-          pool.connect((error, connection, release) => {
-            if (error) {
-              console.error("Error connecting to the database:", error);
-              return;
-            }
-
-            const insertQuery =
-              "INSERT INTO painting (id, name, prod_year, price, paint_size, sale_status, techlogy, list_image, full_image, prod_date) VALUES (nextval('id_seq'), $1,$2,$3,$4,$5,$6,$7,$8,$9)";
-
-            connection.query(insertQuery, queryValues, (error, results) => {
-              release(); // Release the connection back to the pool
-
-              if (error) {
-                console.error("Error executing the SQL query:", error);
-                res.status(500).send();
-                return;
-              }
-
-              fs.unlink(listPath, (err) => {
-                if (err) throw err;
-                //console.log("File list deleted");
-              });
-
-              fs.unlink(originalPath, (err) => {
-                if (err) throw err;
-                //console.log("File original deleted");
-              });
-
-              fs.unlink(uploadedPath, (err) => {
-                if (err) throw err;
-                //console.log("File uploaded deleted");
-              });
-
-              res.send("Form submitted and data inserted into the database.");
-            });
-          });
-        }
-      });
-  });
-
   // Отправка письма
-  transporter.sendMail(mailOptions, (error, info) => {
-    if (error) {
-      console.error("Ошибка отправки письма:", error);
-      res.status(500).json({ error: "Ошибка отправки письма" });
-    } else {
-      //console.log("Письмо успешно отправлено:", info.response);
-      res.json({ message: "Письмо успешно отправлено" });
-    }
-  });
+  try {
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.error("Ошибка отправки письма:", error);
+        res.status(500).json({ error: "Ошибка отправки письма" });
+      } else {
+        res.json({ message: "Письмо успешно отправлено" });
+      }
+    });
+  } catch (error) {
+    console.error("Ошибка при вызове sendMail:", error);
+    res.status(500).json({ error: "Ошибка при вызове sendMail" });
+  }
 });
 
 var server = app.listen(app.get("port"), function () {

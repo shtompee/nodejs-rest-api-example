@@ -1,15 +1,15 @@
 {
   "server": {
-    "host":"https://nodejs-rest-api-example.onrender.com",
+    "host":"localhost",
     "port":"4000"
   },
   "dbConfig": {
-    "host": "dpg-clbkso7t6quc739h16r0-a.frankfurt-postgres.render.com",
+    "host": "localhost",
     "port": 5432,
-    "user": "root",
-    "password": "2zptsswkjBFj0MfVGsxQrV7D74nBGD2v",
-    "database": "libraryshop",
-    "ssl": true
+    "user": "postgres",
+    "password": "a5187815am",
+    "database": "postgres",
+    "ssl": false
   },
   "smtpConfig": {
     "host": "smtp.gmail.com",
