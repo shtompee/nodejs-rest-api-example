@@ -16,9 +16,9 @@ var app = express();
 app.set("port", process.env.PORT || config.server.port);
 
 app.use((req, res, next) => {
+  res.setHeader("Content-Type", "application/json");
   res.setHeader("Access-Control-Allow-Headers", "*");
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Content-Type", "application/json");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
   next();
 });
@@ -34,7 +34,7 @@ app.use(express.static("public"));
 // Добавьте это middleware
 app.use(bodyParser.urlencoded({ extended: false }));
 // Добавьте это middleware
-app.use(bodyParser.json());
+//app.use(bodyParser.json());
 //app.use(cors());
 
 const pool = new Pool({
