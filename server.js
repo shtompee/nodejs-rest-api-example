@@ -20,15 +20,14 @@ app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   next();
 });
 
-app.get("/"),
-  (req, res) => {
-    res.setHeader("Content-Type", "text/html");
-    res.sendFile(path.join(__dirname, "index.html"));
-  };
+// app.get("/"),
+//   (req, res) => {
+//     res.setHeader("Content-Type", "text/html");
+//     res.sendFile(path.join(__dirname, "index.html"));
+//   };
 
 //Serve static files from the "public" directory
 app.use(express.static("public"));
@@ -387,15 +386,11 @@ const transporter = nodemailer.createTransport({
 app.get("/products/productImage/:id", async (req, res) => {
   try {
     res.header("Content-Type", "image/jpeg");
-    res.header("Access-Control-Allow-Origin", "*");
     res.header(
       "Access-Control-Allow-Headers",
       "Origin, X-Requested-With, Content-Type, Accept"
     );
-    res.header("Access-Control-Allow-Methods", "GET, POST");
-
     const id = req.params.id;
-
     const productImage = await getProductImage(id);
     res.send(productImage);
   } catch (error) {
