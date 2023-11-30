@@ -24,6 +24,7 @@ app.use(express.static("public"));
 // Handle requests to different routes
 app.get("/", (req, res) => {
   // Send the index.html file for the root route
+  res.setHeader("Content-Type", "text/html");
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
@@ -548,6 +549,7 @@ app.post("/products/send-email", (req, res) => {
 
 // Handle all other routes by sending the index.html file
 app.get("*", (req, res) => {
+  res.setHeader("Content-Type", "text/html");
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
