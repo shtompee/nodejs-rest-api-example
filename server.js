@@ -23,11 +23,11 @@ app.use((req, res, next) => {
   next();
 });
 
-// app.get("/"),
-//   (req, res) => {
-//     res.setHeader("Content-Type", "text/html");
-//     res.sendFile(path.join(__dirname, "index.html"));
-//   };
+app.get("/"),
+  (req, res) => {
+    res.setHeader("Content-Type", "text/html");
+    res.sendFile(path.join(__dirname, "public", "index.html"));
+  };
 
 //Serve static files from the "public" directory
 app.use(express.static("public"));
