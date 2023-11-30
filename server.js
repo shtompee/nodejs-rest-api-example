@@ -16,7 +16,7 @@ var app = express();
 app.set("port", process.env.PORT || config.server.port);
 
 //Serve static files from the "public" directory
-//app.use(express.static("public"));
+app.use(express.static("public"));
 
 app.use((req, res, next) => {
   res.setHeader("Content-Type", "application/json");
@@ -26,20 +26,11 @@ app.use((req, res, next) => {
   next();
 });
 
-// app.get("/"),
-//   (req, res) => {
-//     res.setHeader("Content-Type", "text/html");
-//     console.log("post");
-//     zaza = path.join(__dirname, "public", "index.html");
-//     console.log(zaza);
-//     res.sendFile(zaza);
-//   };
-
 // Добавьте это middleware
 app.use(bodyParser.urlencoded({ extended: false }));
 // Добавьте это middleware
-//app.use(bodyParser.json());
-//app.use(cors());
+app.use(bodyParser.json());
+app.use(cors());
 
 const pool = new Pool({
   user: config.dbConfig.user,
