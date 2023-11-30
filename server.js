@@ -15,22 +15,27 @@ var app = express();
 
 app.set("port", process.env.PORT || config.server.port);
 
+//Serve static files from the "public" directory
+app.use(express.static("public"));
+
 app.use((req, res, next) => {
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Access-Control-Allow-Headers", "*");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
+  console.log("pre");
   next();
 });
 
 app.get("/"),
   (req, res) => {
     res.setHeader("Content-Type", "text/html");
-    res.sendFile(path.join(__dirname, "public", "index.html"));
+    console.log("post");
+    zaza = path.join(__dirname, "public", "index.html");
+    console.log(zaza);
+    res.sendFile(zaza);
   };
 
-//Serve static files from the "public" directory
-app.use(express.static("public"));
 // Добавьте это middleware
 app.use(bodyParser.urlencoded({ extended: false }));
 // Добавьте это middleware
