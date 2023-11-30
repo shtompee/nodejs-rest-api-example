@@ -20,7 +20,7 @@ app.set("port", process.env.PORT || config.server.port);
 //app.use(express.static("public"));
 
 app.use(express.static(path.join(__dirname, "public")));
-app.get("*", (req, res) => {
+app.get("/", (req, res) => {
   res.setHeader("Content-Type", "text/html");
   res.sendFile(path.resolve(__dirname, "public", "index.html"));
 });
@@ -161,7 +161,6 @@ app.post("/products/upload", upload.single("image"), (req, res) => {
 
 //---------------------Products------------------------
 
-app.use("/products", require("./products"));
 app.get("/products", async (req, res) => {
   try {
     const page = req.query.page;
