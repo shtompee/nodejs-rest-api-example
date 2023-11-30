@@ -19,10 +19,12 @@ app.set("port", process.env.PORT || config.server.port);
 //Serve static files from the "public" directory
 //app.use(express.static("public"));
 
-app.use(express.static(path.join(__dirname, "public")));
+// Serve static files from the 'public' directory
+app.use(express.static("public"));
+// Handle requests to different routes
 app.get("/", (req, res) => {
-  res.setHeader("Content-Type", "text/html");
-  res.sendFile(path.resolve(__dirname, "public", "index.html"));
+  // Send the index.html file for the root route
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 app.use((req, res, next) => {
@@ -542,6 +544,11 @@ app.post("/products/send-email", (req, res) => {
     console.error("Ошибка при вызове sendMail:", error);
     res.status(500).json({ error: "Ошибка при вызове sendMail" });
   }
+});
+
+// Handle all other routes by sending the index.html file
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 var server = app.listen(app.get("port"), function () {
