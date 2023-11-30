@@ -161,6 +161,7 @@ app.post("/products/upload", upload.single("image"), (req, res) => {
 
 //---------------------Products------------------------
 
+app.use("/products", require("./products"));
 app.get("/products", async (req, res) => {
   try {
     const page = req.query.page;
