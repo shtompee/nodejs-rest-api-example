@@ -68,7 +68,12 @@ app.post("/products/upload", upload.single("image"), (req, res) => {
   }
 
   // Check if the file format is supported
-  const supportedFormats = ["image/jpeg", "image/png", "image/gif"];
+  const supportedFormats = [
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/jpg",
+  ];
   if (!supportedFormats.includes(image.mimetype)) {
     res.status(401).send("Unsupported file format.");
     return;
